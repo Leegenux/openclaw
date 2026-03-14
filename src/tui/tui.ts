@@ -655,7 +655,9 @@ export async function runTui(opts: TuiOptions) {
     }
 
     // Show queue state with message preview if available
-    let statusText = `${activityStatus} • ${elapsed}`;
+    // Use "running" label when gateway has running sessions, regardless of local activityStatus
+    const statusLabel = queueState && queueState.totalRunning > 0 ? "running" : activityStatus;
+    let statusText = `${statusLabel} • ${elapsed}`;
     if (queueState && (queueState.totalRunning > 0 || queueState.totalQueued > 0)) {
       const running = queueState.totalRunning;
       const queued = queueState.totalQueued;
@@ -668,9 +670,9 @@ export async function runTui(opts: TuiOptions) {
         const firstQueued = queuedRuns[0]?.messagePreview ?? `msg 1`;
         const queuedPreview =
           firstQueued.length > 20 ? firstQueued.slice(0, 20) + "…" : firstQueued;
-        statusText = `${activityStatus} • ${truncated} (${elapsed}) | queued ${queued}: ${queuedPreview}`;
+        statusText = `${statusLabel} • ${truncated} (${elapsed}) | queued ${queued}: ${queuedPreview}`;
       } else if (running > 0) {
-        statusText = `${activityStatus} • ${truncated} (${elapsed})`;
+        statusText = `${statusLabel} • ${truncated} (${elapsed})`;
       }
     }
     statusLoader.setMessage(`${statusText} | ${connectionStatus}`);
@@ -755,6 +757,8 @@ export async function runTui(opts: TuiOptions) {
       if (queueState && (queueState.totalRunning > 0 || queueState.totalQueued > 0)) {
         const running = queueState.totalRunning;
         const queued = queueState.totalQueued;
+        // Use running label when gateway has running sessions
+        const statusLabel = running > 0 ? "running" : "queued";
         if (running > 0 && queued > 0) {
           // Show running preview + queued count
           const preview =
@@ -764,19 +768,19 @@ export async function runTui(opts: TuiOptions) {
           const firstQueued = queuedRuns[0]?.messagePreview ?? `msg 1`;
           const queuedPreview =
             firstQueued.length > 15 ? firstQueued.slice(0, 15) + "…" : firstQueued;
-          text = `${truncated} | queued ${queued}: ${queuedPreview}`;
+          text = `${statusLabel}: ${truncated} | queued ${queued}: ${queuedPreview}`;
         } else if (running > 0) {
           const preview =
             queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
           const truncated = preview.length > 30 ? preview.slice(0, 30) + "…" : preview;
-          text = `running ${running}: ${truncated}`;
+          text = `${statusLabel}: ${truncated}`;
         } else if (queued > 0) {
           // Show queued messages as a list
           const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
           const previews = queuedRuns
             .slice(0, 3)
             .map((r) => r.messagePreview ?? `msg ${r.position ?? "?"}`);
-          text = `queued ${queued}: ${previews.join(" • ")}`;
+          text = `${statusLabel} ${queued}: ${previews.join(" • ")}`;
         }
       }
       statusText?.setText(theme.dim(text));
