@@ -114,24 +114,33 @@ export function getFollowupQueueDepth(key: string): number {
 
 /**
  * Get all followup queues info for status display.
- * Returns queue key, depth, and summary lines for each active queue.
+ * Returns queue key, depth, and message previews for each active queue.
  */
 export function getAllFollowupQueuesInfo(): Array<{
   queueKey: string;
   depth: number;
-  summaryLines: string[];
+  previews: Array<{
+    summaryLine?: string;
+    enqueuedAt: number;
+  }>;
 }> {
   const result: Array<{
     queueKey: string;
     depth: number;
-    summaryLines: string[];
+    previews: Array<{
+      summaryLine?: string;
+      enqueuedAt: number;
+    }>;
   }> = [];
   for (const [key, queue] of FOLLOWUP_QUEUES) {
     if (queue.items.length > 0) {
       result.push({
         queueKey: key,
         depth: queue.items.length,
-        summaryLines: queue.summaryLines.slice(0, 5), // Limit to 5 summary lines
+        previews: queue.items.slice(0, 5).map((item) => ({
+          summaryLine: item.summaryLine ?? item.prompt.slice(0, 60),
+          enqueuedAt: item.enqueuedAt,
+        })),
       });
     }
   }

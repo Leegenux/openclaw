@@ -363,12 +363,13 @@ export async function runTui(opts: TuiOptions) {
       runId: string;
       sessionKey: string;
       state: string;
-      startedAtMs: number;
+      startedAtMs?: number;
       messagePreview?: string;
       position?: number;
     }>;
     totalRunning: number;
     totalQueued: number;
+    activeStreamingSessions?: number;
   } | null = null;
   let queuePollTimer: NodeJS.Timeout | null = null;
 
@@ -662,7 +663,12 @@ export async function runTui(opts: TuiOptions) {
         queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
       const truncated = preview.length > 25 ? preview.slice(0, 25) + "…" : preview;
       if (queued > 0) {
-        statusText = `${activityStatus} • ${truncated} (${elapsed}) | queued: ${queued}`;
+        // Show running message + queued count with first queued preview
+        const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
+        const firstQueued = queuedRuns[0]?.messagePreview ?? `msg 1`;
+        const queuedPreview =
+          firstQueued.length > 20 ? firstQueued.slice(0, 20) + "…" : firstQueued;
+        statusText = `${activityStatus} • ${truncated} (${elapsed}) | queued ${queued}: ${queuedPreview}`;
       } else if (running > 0) {
         statusText = `${activityStatus} • ${truncated} (${elapsed})`;
       }
@@ -755,7 +761,12 @@ export async function runTui(opts: TuiOptions) {
           const truncated = preview.length > 30 ? preview.slice(0, 30) + "…" : preview;
           text = `running ${running}: ${truncated}`;
         } else if (queued > 0) {
-          text = `queued: ${queued} messages`;
+          // Show queued messages as a list
+          const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
+          const previews = queuedRuns
+            .slice(0, 3)
+            .map((r) => r.messagePreview ?? `msg ${r.position ?? "?"}`);
+          text = `queued ${queued}: ${previews.join(" • ")}`;
         }
       }
       statusText?.setText(theme.dim(text));

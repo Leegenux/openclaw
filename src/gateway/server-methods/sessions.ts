@@ -475,14 +475,21 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     let queuedTotal = 0;
     for (const queue of followupQueues) {
       queuedTotal += queue.depth;
-      // Try to find the sessionKey from the queueKey
-      // queueKey is typically the sessionKey
-      runs.push({
-        runId: `followup-${queue.queueKey}`,
-        sessionKey: queue.queueKey,
-        state: "queued",
-        position: queue.depth,
-      });
+      // Add each queued message as a separate entry
+      for (let i = 0; i < queue.previews.length; i++) {
+        const preview = queue.previews[i];
+        if (!preview) {
+          continue;
+        }
+        runs.push({
+          runId: `queued-${queue.queueKey}-${i}`,
+          sessionKey: queue.queueKey,
+          state: "queued",
+          startedAtMs: preview.enqueuedAt,
+          messagePreview: preview.summaryLine,
+          position: i + 1,
+        });
+      }
     }
 
     // Count active streaming sessions (these can have messages queued via steer())
