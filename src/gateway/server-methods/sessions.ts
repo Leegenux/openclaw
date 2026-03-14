@@ -502,6 +502,29 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       }
     }
 
+    // If we have streaming sessions but no running runs in chatAbortControllers,
+    // check if followup queue has a message being processed (first in queue)
+    // and promote it to "running" status
+    if (streamingSessionCount > 0 && runs.filter((r) => r.state === "running").length === 0) {
+      for (const queue of followupQueues) {
+        if (queue.previews.length > 0) {
+          const firstPreview = queue.previews[0];
+          if (firstPreview) {
+            // Promote first queued message to running
+            runs.push({
+              runId: `running-${queue.queueKey}`,
+              sessionKey: queue.queueKey,
+              state: "running",
+              startedAtMs: firstPreview.enqueuedAt,
+              messagePreview: firstPreview.summaryLine,
+            });
+            // Reduce queued count since we promoted one to running
+            queuedTotal = Math.max(0, queuedTotal - 1);
+          }
+        }
+      }
+    }
+
     // Sort by startedAtMs ascending (oldest first)
     runs.sort((a, b) => (a.startedAtMs ?? 0) - (b.startedAtMs ?? 0));
 
