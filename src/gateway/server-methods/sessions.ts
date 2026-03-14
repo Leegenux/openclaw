@@ -457,6 +457,7 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     }> = [];
 
     // Extract active runs from chatAbortControllers (running messages)
+    // Note: These are transient and may be deleted before agent finishes
     for (const [runId, entry] of context.chatAbortControllers) {
       runs.push({
         runId,
@@ -492,7 +493,8 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       }
     }
 
-    // Count active streaming sessions (these can have messages queued via steer())
+    // Count active streaming sessions (these represent actual running agents)
+    // Use this as the "running" count since chatAbortControllers is unreliable
     let streamingSessionCount = 0;
     for (const info of activeEmbeddedRuns) {
       if (info.isStreaming) {
@@ -503,11 +505,18 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     // Sort by startedAtMs ascending (oldest first)
     runs.sort((a, b) => (a.startedAtMs ?? 0) - (b.startedAtMs ?? 0));
 
+    // Use streamingSessionCount as running count if chatAbortControllers is empty
+    // This ensures we show "running" when agent is actually processing
+    const effectiveRunning = Math.max(
+      runs.filter((r) => r.state === "running").length,
+      streamingSessionCount > 0 ? 1 : 0,
+    );
+
     respond(
       true,
       {
         runs,
-        totalRunning: runs.filter((r) => r.state === "running").length,
+        totalRunning: effectiveRunning,
         totalQueued: queuedTotal,
         activeStreamingSessions: streamingSessionCount,
       },
