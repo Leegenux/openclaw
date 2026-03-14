@@ -5,6 +5,7 @@ export { scheduleFollowupDrain } from "./queue/drain.js";
 export {
   enqueueFollowupRun,
   getFollowupQueueDepth,
+  getAllFollowupQueuesInfo,
   resetRecentQueuedMessageIdDedupe,
 } from "./queue/enqueue.js";
 export { resolveQueueSettings } from "./queue/settings.js";

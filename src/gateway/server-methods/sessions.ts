@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
+import { getActiveEmbeddedRunsInfo } from "../../agents/pi-embedded-runner/runs.js";
+import { getAllFollowupQueuesInfo } from "../../auto-reply/reply/queue.js";
 import { loadConfig } from "../../config/config.js";
 import {
   loadSessionStore,
@@ -440,6 +442,67 @@ export const sessionsHandlers: GatewayRequestHandlers = {
         compacted: true,
         archived,
         kept: keptLines.length,
+      },
+      undefined,
+    );
+  },
+  "sessions.runs": ({ respond, context }) => {
+    const runs: Array<{
+      runId: string;
+      sessionKey: string;
+      state: "running" | "queued";
+      startedAtMs?: number;
+      messagePreview?: string;
+      position?: number;
+    }> = [];
+
+    // Extract active runs from chatAbortControllers (running messages)
+    for (const [runId, entry] of context.chatAbortControllers) {
+      runs.push({
+        runId,
+        sessionKey: entry.sessionKey,
+        state: "running",
+        startedAtMs: entry.startedAtMs,
+        messagePreview: entry.messagePreview,
+      });
+    }
+
+    // Get active embedded runs (streaming sessions that can accept queued messages)
+    const activeEmbeddedRuns = getActiveEmbeddedRunsInfo();
+
+    // Get followup queues (queued messages waiting for active runs to complete)
+    const followupQueues = getAllFollowupQueuesInfo();
+    let queuedTotal = 0;
+    for (const queue of followupQueues) {
+      queuedTotal += queue.depth;
+      // Try to find the sessionKey from the queueKey
+      // queueKey is typically the sessionKey
+      runs.push({
+        runId: `followup-${queue.queueKey}`,
+        sessionKey: queue.queueKey,
+        state: "queued",
+        position: queue.depth,
+      });
+    }
+
+    // Count active streaming sessions (these can have messages queued via steer())
+    let streamingSessionCount = 0;
+    for (const info of activeEmbeddedRuns) {
+      if (info.isStreaming) {
+        streamingSessionCount++;
+      }
+    }
+
+    // Sort by startedAtMs ascending (oldest first)
+    runs.sort((a, b) => (a.startedAtMs ?? 0) - (b.startedAtMs ?? 0));
+
+    respond(
+      true,
+      {
+        runs,
+        totalRunning: runs.filter((r) => r.state === "running").length,
+        totalQueued: queuedTotal,
+        activeStreamingSessions: streamingSessionCount,
       },
       undefined,
     );

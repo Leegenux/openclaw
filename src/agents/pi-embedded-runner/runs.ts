@@ -136,6 +136,30 @@ export function getActiveEmbeddedRunCount(): number {
 }
 
 /**
+ * Get information about active embedded runs for queue status display.
+ * Returns session IDs and their streaming status.
+ */
+export function getActiveEmbeddedRunsInfo(): Array<{
+  sessionId: string;
+  isStreaming: boolean;
+  isCompacting: boolean;
+}> {
+  const result: Array<{
+    sessionId: string;
+    isStreaming: boolean;
+    isCompacting: boolean;
+  }> = [];
+  for (const [sessionId, handle] of ACTIVE_EMBEDDED_RUNS) {
+    result.push({
+      sessionId,
+      isStreaming: handle.isStreaming(),
+      isCompacting: handle.isCompacting(),
+    });
+  }
+  return result;
+}
+
+/**
  * Wait for active embedded runs to drain.
  *
  * Used during restarts so in-flight compaction runs can release session write

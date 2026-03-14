@@ -220,6 +220,38 @@ export function getTotalQueueSize() {
   return total;
 }
 
+/**
+ * Get the full queue state for introspection.
+ * Returns all lanes with their queue contents and active task counts.
+ */
+export function getQueueState(): {
+  lanes: Map<
+    string,
+    {
+      queue: QueueEntry[];
+      activeTaskIds: Set<number>;
+      maxConcurrent: number;
+    }
+  >;
+} {
+  const lanes = new Map<
+    string,
+    {
+      queue: QueueEntry[];
+      activeTaskIds: Set<number>;
+      maxConcurrent: number;
+    }
+  >();
+  for (const [name, state] of queueState.lanes) {
+    lanes.set(name, {
+      queue: [...state.queue],
+      activeTaskIds: new Set(state.activeTaskIds),
+      maxConcurrent: state.maxConcurrent,
+    });
+  }
+  return { lanes };
+}
+
 export function clearCommandLane(lane: string = CommandLane.Main) {
   const cleaned = lane.trim() || CommandLane.Main;
   const state = queueState.lanes.get(cleaned);

@@ -1208,6 +1208,8 @@ export const chatHandlers: GatewayRequestHandlers = {
 
     try {
       const abortController = new AbortController();
+      // Create preview from the original message (before command injection)
+      const messagePreview = rawMessage.slice(0, 80) + (rawMessage.length > 80 ? "…" : "");
       context.chatAbortControllers.set(clientRunId, {
         controller: abortController,
         sessionId: entry?.sessionId ?? clientRunId,
@@ -1216,6 +1218,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         expiresAtMs: resolveChatRunExpiresAtMs({ now, timeoutMs }),
         ownerConnId: normalizeOptionalText(client?.connId),
         ownerDeviceId: normalizeOptionalText(client?.connect?.device?.id),
+        messagePreview,
       });
       const ackPayload = {
         runId: clientRunId,

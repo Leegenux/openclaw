@@ -8,6 +8,8 @@ export type ChatAbortControllerEntry = {
   expiresAtMs: number;
   ownerConnId?: string;
   ownerDeviceId?: string;
+  /** First N characters of the user message for queue display (max 80 chars) */
+  messagePreview?: string;
 };
 
 export function isChatStopCommandText(text: string): boolean {

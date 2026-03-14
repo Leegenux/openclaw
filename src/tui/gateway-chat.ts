@@ -265,6 +265,32 @@ export class GatewayChatClient {
     const res = await this.client.request<{ models?: GatewayModelChoice[] }>("models.list");
     return Array.isArray(res?.models) ? res.models : [];
   }
+
+  async getRunningSessions(sessionKey?: string): Promise<{
+    runs: Array<{
+      runId: string;
+      sessionKey: string;
+      state: string;
+      startedAtMs: number;
+      messagePreview?: string;
+      position?: number;
+    }>;
+    totalRunning: number;
+    totalQueued: number;
+  }> {
+    return await this.client.request<{
+      runs: Array<{
+        runId: string;
+        sessionKey: string;
+        state: string;
+        startedAtMs: number;
+        messagePreview?: string;
+        position?: number;
+      }>;
+      totalRunning: number;
+      totalQueued: number;
+    }>("sessions.runs", sessionKey ? { sessionKey } : {});
+  }
 }
 
 export async function resolveGatewayConnection(

@@ -357,6 +357,20 @@ export async function runTui(opts: TuiOptions) {
   let statusTimer: NodeJS.Timeout | null = null;
   let statusStartedAt: number | null = null;
   let lastActivityStatus = activityStatus;
+  // Queue state for displaying running sessions
+  let queueState: {
+    runs: Array<{
+      runId: string;
+      sessionKey: string;
+      state: string;
+      startedAtMs: number;
+      messagePreview?: string;
+      position?: number;
+    }>;
+    totalRunning: number;
+    totalQueued: number;
+  } | null = null;
+  let queuePollTimer: NodeJS.Timeout | null = null;
 
   const state: TuiStateAccess = {
     get agentDefaultId() {
@@ -639,7 +653,21 @@ export async function runTui(opts: TuiOptions) {
       return;
     }
 
-    statusLoader.setMessage(`${activityStatus} • ${elapsed} | ${connectionStatus}`);
+    // Show queue state with message preview if available
+    let statusText = `${activityStatus} • ${elapsed}`;
+    if (queueState && (queueState.totalRunning > 0 || queueState.totalQueued > 0)) {
+      const running = queueState.totalRunning;
+      const queued = queueState.totalQueued;
+      const preview =
+        queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
+      const truncated = preview.length > 25 ? preview.slice(0, 25) + "…" : preview;
+      if (queued > 0) {
+        statusText = `${activityStatus} • ${truncated} (${elapsed}) | queued: ${queued}`;
+      } else if (running > 0) {
+        statusText = `${activityStatus} • ${truncated} (${elapsed})`;
+      }
+    }
+    statusLoader.setMessage(`${statusText} | ${connectionStatus}`);
   };
 
   const startStatusTimer = () => {
@@ -714,10 +742,61 @@ export async function runTui(opts: TuiOptions) {
       statusLoader?.stop();
       statusLoader = null;
       ensureStatusText();
-      const text = activityStatus ? `${connectionStatus} | ${activityStatus}` : connectionStatus;
+      // Show queue state if there are running or queued sessions
+      let text = activityStatus ? `${connectionStatus} | ${activityStatus}` : connectionStatus;
+      if (queueState && (queueState.totalRunning > 0 || queueState.totalQueued > 0)) {
+        const running = queueState.totalRunning;
+        const queued = queueState.totalQueued;
+        if (running > 0 && queued > 0) {
+          text = `running ${running}, queued ${queued}`;
+        } else if (running > 0) {
+          const preview =
+            queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
+          const truncated = preview.length > 30 ? preview.slice(0, 30) + "…" : preview;
+          text = `running ${running}: ${truncated}`;
+        } else if (queued > 0) {
+          text = `queued: ${queued} messages`;
+        }
+      }
       statusText?.setText(theme.dim(text));
     }
     lastActivityStatus = activityStatus;
+  };
+
+  // Poll for running sessions status
+  const pollQueueState = async () => {
+    if (!isConnected) {
+      return;
+    }
+    try {
+      const result = await client.getRunningSessions();
+      queueState = result;
+      renderStatus();
+      tui.requestRender();
+    } catch (err) {
+      // Log polling errors for debugging
+      chatLog.addSystem(`queue poll error: ${String(err)}`);
+    }
+  };
+
+  const startQueuePoll = () => {
+    if (queuePollTimer) {
+      return;
+    }
+    // Initial poll
+    void pollQueueState();
+    // Poll every 2 seconds
+    queuePollTimer = setInterval(() => {
+      void pollQueueState();
+    }, 2000);
+  };
+
+  const stopQueuePoll = () => {
+    if (!queuePollTimer) {
+      return;
+    }
+    clearInterval(queuePollTimer);
+    queuePollTimer = null;
   };
 
   const setConnectionStatus = (text: string, ttlMs?: number) => {
@@ -736,6 +815,10 @@ export async function runTui(opts: TuiOptions) {
 
   const setActivityStatus = (text: string) => {
     activityStatus = text;
+    // Trigger immediate poll when entering busy state
+    if (busyStates.has(text)) {
+      void pollQueueState();
+    }
     renderStatus();
   };
 
@@ -822,6 +905,7 @@ export async function runTui(opts: TuiOptions) {
       return;
     }
     exitRequested = true;
+    stopQueuePoll();
     client.stop();
     stopTuiSafely(() => tui.stop());
     process.exit(0);
@@ -933,6 +1017,7 @@ export async function runTui(opts: TuiOptions) {
     const reconnected = wasDisconnected;
     wasDisconnected = false;
     setConnectionStatus("connected");
+    startQueuePoll();
     void (async () => {
       await refreshAgents();
       updateHeader();
@@ -952,6 +1037,7 @@ export async function runTui(opts: TuiOptions) {
     isConnected = false;
     wasDisconnected = true;
     historyLoaded = false;
+    stopQueuePoll();
     const disconnectState = resolveGatewayDisconnectState(reason);
     setConnectionStatus(disconnectState.connectionStatus, 5000);
     setActivityStatus(disconnectState.activityStatus);

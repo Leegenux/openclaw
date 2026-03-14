@@ -1422,4 +1422,21 @@ describe("gateway server sessions", () => {
 
     ws.close();
   });
+
+  test("sessions.runs returns empty when no runs active", async () => {
+    const { ws } = await openClient();
+
+    const result = await rpcReq<{
+      runs: Array<{ runId: string; sessionKey: string; state: string }>;
+      totalRunning: number;
+      totalQueued: number;
+    }>(ws, "sessions.runs", {});
+
+    expect(result.ok).toBe(true);
+    expect(result.payload?.runs).toEqual([]);
+    expect(result.payload?.totalRunning).toBe(0);
+    expect(result.payload?.totalQueued).toBe(0);
+
+    ws.close();
+  });
 });

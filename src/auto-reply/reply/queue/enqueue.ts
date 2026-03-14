@@ -2,7 +2,7 @@ import { createDedupeCache } from "../../../infra/dedupe.js";
 import { resolveGlobalSingleton } from "../../../shared/global-singleton.js";
 import { applyQueueDropPolicy, shouldSkipQueueItem } from "../../../utils/queue-helpers.js";
 import { kickFollowupDrainIfIdle } from "./drain.js";
-import { getExistingFollowupQueue, getFollowupQueue } from "./state.js";
+import { getExistingFollowupQueue, getFollowupQueue, FOLLOWUP_QUEUES } from "./state.js";
 import type { FollowupRun, QueueDedupeMode, QueueSettings } from "./types.js";
 
 /**
@@ -110,6 +110,32 @@ export function getFollowupQueueDepth(key: string): number {
     return 0;
   }
   return queue.items.length;
+}
+
+/**
+ * Get all followup queues info for status display.
+ * Returns queue key, depth, and summary lines for each active queue.
+ */
+export function getAllFollowupQueuesInfo(): Array<{
+  queueKey: string;
+  depth: number;
+  summaryLines: string[];
+}> {
+  const result: Array<{
+    queueKey: string;
+    depth: number;
+    summaryLines: string[];
+  }> = [];
+  for (const [key, queue] of FOLLOWUP_QUEUES) {
+    if (queue.items.length > 0) {
+      result.push({
+        queueKey: key,
+        depth: queue.items.length,
+        summaryLines: queue.summaryLines.slice(0, 5), // Limit to 5 summary lines
+      });
+    }
+  }
+  return result;
 }
 
 export function resetRecentQueuedMessageIdDedupe(): void {

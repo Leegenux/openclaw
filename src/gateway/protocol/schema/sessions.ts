@@ -137,3 +137,11 @@ export const SessionsUsageParamsSchema = Type.Object(
   },
   { additionalProperties: false },
 );
+
+export const SessionsRunsParamsSchema = Type.Object(
+  {
+    /** Filter by session key; if omitted returns all sessions. */
+    sessionKey: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
