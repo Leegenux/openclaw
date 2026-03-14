@@ -727,7 +727,9 @@ export async function runTui(opts: TuiOptions) {
   };
 
   const renderStatus = () => {
-    const isBusy = busyStates.has(activityStatus);
+    // Consider gateway running state as busy (not just local activityStatus)
+    const hasGatewayRunning = queueState && queueState.totalRunning > 0;
+    const isBusy = busyStates.has(activityStatus) || hasGatewayRunning;
     if (isBusy) {
       if (!statusStartedAt || lastActivityStatus !== activityStatus) {
         statusStartedAt = Date.now();
