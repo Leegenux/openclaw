@@ -752,38 +752,7 @@ export async function runTui(opts: TuiOptions) {
       statusLoader?.stop();
       statusLoader = null;
       ensureStatusText();
-      // Show queue state if there are running or queued sessions
-      let text = activityStatus ? `${connectionStatus} | ${activityStatus}` : connectionStatus;
-      if (queueState && (queueState.totalRunning > 0 || queueState.totalQueued > 0)) {
-        const running = queueState.totalRunning;
-        const queued = queueState.totalQueued;
-        // Use running label when gateway has running sessions
-        const statusLabel = running > 0 ? "running" : "queued";
-        if (running > 0 && queued > 0) {
-          // Show running preview + queued count
-          const preview =
-            queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
-          const truncated = preview.length > 25 ? preview.slice(0, 25) + "…" : preview;
-          const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
-          const firstQueued = queuedRuns[0]?.messagePreview ?? `msg 1`;
-          const queuedPreview =
-            firstQueued.length > 15 ? firstQueued.slice(0, 15) + "…" : firstQueued;
-          text = `${statusLabel}: ${truncated} | queued ${queued}: ${queuedPreview}`;
-        } else if (running > 0) {
-          const preview =
-            queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
-          const truncated = preview.length > 30 ? preview.slice(0, 30) + "…" : preview;
-          text = `${statusLabel}: ${truncated}`;
-        } else if (queued > 0) {
-          // Show queued messages as a list
-          const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
-          const previews = queuedRuns
-            .slice(0, 3)
-            .map((r) => r.messagePreview ?? `msg ${r.position ?? "?"}`);
-          text = `${statusLabel} ${queued}: ${previews.join(" • ")}`;
-        }
-      }
-      statusText?.setText(theme.dim(text));
+      statusText?.setText(theme.dim(connectionStatus));
     }
     lastActivityStatus = activityStatus;
   };
