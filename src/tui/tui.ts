@@ -754,7 +754,15 @@ export async function runTui(opts: TuiOptions) {
         const running = queueState.totalRunning;
         const queued = queueState.totalQueued;
         if (running > 0 && queued > 0) {
-          text = `running ${running}, queued ${queued}`;
+          // Show running preview + queued count
+          const preview =
+            queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
+          const truncated = preview.length > 25 ? preview.slice(0, 25) + "…" : preview;
+          const queuedRuns = queueState.runs.filter((r) => r.state === "queued");
+          const firstQueued = queuedRuns[0]?.messagePreview ?? `msg 1`;
+          const queuedPreview =
+            firstQueued.length > 15 ? firstQueued.slice(0, 15) + "…" : firstQueued;
+          text = `${truncated} | queued ${queued}: ${queuedPreview}`;
         } else if (running > 0) {
           const preview =
             queueState.runs.find((r) => r.state === "running")?.messagePreview ?? "processing";
